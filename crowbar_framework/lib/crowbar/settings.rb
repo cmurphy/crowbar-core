@@ -16,22 +16,17 @@
 
 module Crowbar
   class Settings
-    @@domain = nil
 
     class << self
       def domain
-        # FIXME: We are using a global here to avoid lookups. We need to
-        # consider some better cache/expiration strategy.
-        if @@domain.nil?
-          dns_proposal = Proposal.where(barclamp: "dns", name: "default").first
-          @@domain = dns_proposal[:attributes][:dns][:domain] unless dns_proposal.nil?
-        end
+        dns_proposal = Proposal.where(barclamp: "dns", name: "default").first
+        domain = dns_proposal[:attributes][:dns][:domain] unless dns_proposal.nil?
 
-        if @@domain.nil?
+        if domain.nil?
           return `dnsdomainname`.strip
         end
 
-        @@domain
+        domain
       end
 
       def simple_proposal_ui?
@@ -62,6 +57,15 @@ module Crowbar
         options[:show] << :bios unless options[:bios].empty?
 
         options
+      end
+
+      private
+
+      def cached_domain
+        Rails.cache.fetch("domain") do
+          dns_proposal = Proposal.where(barclamp: "dns", name: "default").first
+          dns_proposal[:attributes][:dns][:domain] unless dns_proposal.nil?
+        end
       end
     end
   end
